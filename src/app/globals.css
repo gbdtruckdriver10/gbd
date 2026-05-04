@@ -1,0 +1,14 @@
+@import "../styles/fonts.css";
+@import "tailwindcss";
+@import "../styles/theme.css";
+
+/* just makes it smoother font rendering, i guess */
+html, body {
+  height: 100%;
+}
+
+body {
+  font-family: Inter, system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+}
+
+* { box-sizing: border-box; }
