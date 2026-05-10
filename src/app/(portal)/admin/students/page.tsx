@@ -7,7 +7,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
-import { Search, MoveRight, UserMinus, Mail, Phone, GraduationCap, Plus, Minus, ShieldAlert } from "lucide-react";
+import { Search, MoveRight, UserMinus, Mail, Phone, GraduationCap, Plus, Minus, ShieldAlert, Pencil } from "lucide-react";
+import { Textarea } from "@/components/ui/textarea";
 
 import { toast } from "sonner";
 
@@ -17,6 +18,7 @@ type Student = {
   last_name: string;
   date_of_birth: string | null;
   enrollment_status: string;
+  allergies: string | null;
   classroom_id: number | null;
   classroom_name: string | null;
   assigned_from: string | null;
@@ -87,6 +89,9 @@ export default function AdminStudents() {
   const [contactsOpen, setContactsOpen] = useState(false);
   const [contacts, setContacts] = useState<EmergencyContact[]>([]);
   const [contactsLoading, setContactsLoading] = useState(false);
+  const [allergiesOpen, setAllergiesOpen] = useState(false);
+  const [allergiesText, setAllergiesText] = useState("");
+  const [allergiesSaving, setAllergiesSaving] = useState(false);
 
   useEffect(() => {
     Promise.all([
@@ -106,6 +111,34 @@ export default function AdminStudents() {
     const q = search.toLowerCase();
     return name.includes(q) || parent.includes(q) || classroom.includes(q);
   });
+
+  const openAllergies = (student: Student) => {
+    setSelectedStudent(student);
+    setAllergiesText(student.allergies ?? "");
+    setAllergiesOpen(true);
+  };
+
+  const handleSaveAllergies = async () => {
+    if (!selectedStudent) return;
+    setAllergiesSaving(true);
+    try {
+      const res = await fetch(`/api/admin/students/${selectedStudent.child_id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ allergies: allergiesText }),
+      });
+      if (!res.ok) { toast.error("Failed to save allergies"); return; }
+      setStudents((prev) =>
+        prev.map((s) =>
+          s.child_id === selectedStudent.child_id ? { ...s, allergies: allergiesText || null } : s
+        )
+      );
+      toast.success("Allergies updated");
+      setAllergiesOpen(false);
+    } finally {
+      setAllergiesSaving(false);
+    }
+  };
 
   const openContacts = async (student: Student) => {
     setSelectedStudent(student);
@@ -308,6 +341,10 @@ export default function AdminStudents() {
                         <ShieldAlert className="mr-1" size={14} />
                         Emergency
                       </Button>
+                      <Button variant="outline" size="sm" onClick={() => openAllergies(student)}>
+                        <Pencil className="mr-1" size={14} />
+                        Allergies
+                      </Button>
                       <Button variant="outline" size="sm" onClick={() => openPrograms(student)}>
                         <GraduationCap className="mr-1" size={14} />
                         Programs
@@ -333,6 +370,34 @@ export default function AdminStudents() {
           })
         )}
       </div>
+
+      {/* Allergies Dialog */}
+      <Dialog open={allergiesOpen} onOpenChange={setAllergiesOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="text-[#002040]">
+              {selectedStudent?.first_name} {selectedStudent?.last_name} — Allergies &amp; Medical Notes
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3 py-2">
+            <p className="text-sm text-gray-500">
+              Record any allergies, dietary restrictions, or medical notes for this child.
+            </p>
+            <Textarea
+              rows={4}
+              placeholder="e.g. Peanut allergy (EpiPen on file), lactose intolerant..."
+              value={allergiesText}
+              onChange={(e) => setAllergiesText(e.target.value)}
+            />
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setAllergiesOpen(false)} disabled={allergiesSaving}>Cancel</Button>
+            <Button className="bg-[#2888B8] hover:bg-[#1078A8]" onClick={handleSaveAllergies} disabled={allergiesSaving}>
+              {allergiesSaving ? "Saving..." : "Save"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* Emergency Contacts Dialog */}
       <Dialog open={contactsOpen} onOpenChange={setContactsOpen}>

@@ -383,6 +383,14 @@ export default function AdminAdmissions() {
                                 {new Date(app.submitted_at).toLocaleDateString()}
                               </span>
                             </div>
+                            <div>
+                              <span className="text-gray-600">Desired Start:</span>
+                              <span className="ml-2 font-medium">
+                                {app.desired_start_date
+                                  ? new Date(app.desired_start_date).toLocaleDateString()
+                                  : "N/A"}
+                              </span>
+                            </div>
                           </div>
                         </div>
 

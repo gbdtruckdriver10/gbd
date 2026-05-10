@@ -9,6 +9,7 @@ export async function GET() {
       c.last_name,
       c.date_of_birth,
       c.enrollment_status,
+      c.allergies,
       cl.classroom_id,
       cl.classroom_name,
       cca.assigned_from,

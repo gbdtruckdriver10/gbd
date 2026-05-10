@@ -56,14 +56,16 @@ export async function POST(
     }
 
     // 3. Create the child record
+    const allergies = app.review_notes?.match(/Allergies\/Medical: ([^\n]+)/)?.[1]?.trim() ?? null;
     const childResult = await client.query(
-      `INSERT INTO children (first_name, last_name, date_of_birth, enrollment_status)
-       VALUES ($1, $2, $3, 'active')
+      `INSERT INTO children (first_name, last_name, date_of_birth, enrollment_status, allergies)
+       VALUES ($1, $2, $3, 'active', $4)
        RETURNING child_id`,
       [
         app.child_first_name,
         app.child_last_name,
         app.child_dob ?? null,
+        allergies,
       ]
     );
     const childId = childResult.rows[0].child_id;

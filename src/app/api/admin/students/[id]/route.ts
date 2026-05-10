@@ -7,23 +7,28 @@ export async function PATCH(
   { params }: { params: Promise<{ id: string }> }
 ) {
   const { id } = await params;
-  const { classroomId } = await req.json();
-
-  if (!classroomId) {
-    return NextResponse.json({ error: "classroomId is required" }, { status: 400 });
-  }
+  const body = await req.json();
 
   try {
-    await pool.query(
-      `UPDATE child_classroom_assignments
-       SET classroom_id = $1
-       WHERE child_id = $2 AND status = 'active'`,
-      [classroomId, id]
-    );
+    if (body.classroomId !== undefined) {
+      await pool.query(
+        `UPDATE child_classroom_assignments
+         SET classroom_id = $1
+         WHERE child_id = $2 AND status = 'active'`,
+        [body.classroomId, id]
+      );
+    } else if (body.allergies !== undefined) {
+      await pool.query(
+        `UPDATE children SET allergies = $1 WHERE child_id = $2`,
+        [body.allergies || null, id]
+      );
+    } else {
+      return NextResponse.json({ error: "Nothing to update" }, { status: 400 });
+    }
     return NextResponse.json({ ok: true });
   } catch (err) {
-    console.error("Move student error:", err);
-    return NextResponse.json({ error: "Failed to move student" }, { status: 500 });
+    console.error("Update student error:", err);
+    return NextResponse.json({ error: "Failed to update student" }, { status: 500 });
   }
 }
 
