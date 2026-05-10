@@ -8,7 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { MessageSquare, Send, User, Inbox } from "lucide-react";
+import { MessageSquare, Send, User, Inbox, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { useAuth } from "@/contexts/AuthContext";
 
@@ -56,7 +56,7 @@ function formatDate(ts: string) {
   return new Date(ts).toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" });
 }
 
-function MessageCard({ msg, onRead }: { msg: Message; onRead: (id: number) => void }) {
+function MessageCard({ msg, onRead, onDelete }: { msg: Message; onRead: (id: number) => void; onDelete: (id: number) => void }) {
   const [open, setOpen] = useState(false);
 
   const handleOpen = async () => {
@@ -65,6 +65,12 @@ function MessageCard({ msg, onRead }: { msg: Message; onRead: (id: number) => vo
       onRead(msg.message_id);
       await fetch(`/api/messages/${msg.message_id}`, { method: "PATCH" });
     }
+  };
+
+  const handleDelete = async (e: React.MouseEvent) => {
+    e.stopPropagation();
+    await fetch(`/api/messages/${msg.message_id}`, { method: "DELETE" });
+    onDelete(msg.message_id);
   };
 
   return (
@@ -93,7 +99,12 @@ function MessageCard({ msg, onRead }: { msg: Message; onRead: (id: number) => vo
               )}
             </div>
           </div>
-          <span className="text-xs text-gray-400 shrink-0">{timeAgo(msg.sent_at)}</span>
+          <div className="flex items-center gap-2 shrink-0">
+            <span className="text-xs text-gray-400">{timeAgo(msg.sent_at)}</span>
+            <Button variant="ghost" size="icon" className="h-7 w-7 text-gray-400 hover:text-red-500" onClick={handleDelete}>
+              <Trash2 size={14} />
+            </Button>
+          </div>
         </div>
       </CardContent>
     </Card>
@@ -256,6 +267,9 @@ export default function AdminMessagesPage() {
                 msg={msg}
                 onRead={(id) =>
                   setMessages((prev) => prev.map((m) => (m.message_id === id ? { ...m, is_read: true } : m)))
+                }
+                onDelete={(id) =>
+                  setMessages((prev) => prev.filter((m) => m.message_id !== id))
                 }
               />
             ))}

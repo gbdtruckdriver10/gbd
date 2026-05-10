@@ -8,7 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { MessageSquare, Send, User, Inbox, Reply } from "lucide-react";
+import { MessageSquare, Send, User, Inbox, Reply, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { useAuth } from "@/contexts/AuthContext";
 
@@ -61,10 +61,12 @@ function MessageCard({
   msg,
   currentUserId,
   onRead,
+  onDelete,
 }: {
   msg: Message;
   currentUserId: number;
   onRead: (id: number) => void;
+  onDelete: (id: number) => void;
 }) {
   const [open, setOpen] = useState(false);
   const [replyText, setReplyText] = useState("");
@@ -76,6 +78,12 @@ function MessageCard({
       onRead(msg.message_id);
       await fetch(`/api/messages/${msg.message_id}`, { method: "PATCH" });
     }
+  };
+
+  const handleDelete = async (e: React.MouseEvent) => {
+    e.stopPropagation();
+    await fetch(`/api/messages/${msg.message_id}`, { method: "DELETE" });
+    onDelete(msg.message_id);
   };
 
   const handleReply = async (e: React.MouseEvent) => {
@@ -147,7 +155,12 @@ function MessageCard({
               )}
             </div>
           </div>
-          <span className="text-xs text-gray-400 shrink-0">{timeAgo(msg.sent_at)}</span>
+          <div className="flex items-center gap-2 shrink-0">
+            <span className="text-xs text-gray-400">{timeAgo(msg.sent_at)}</span>
+            <Button variant="ghost" size="icon" className="h-7 w-7 text-gray-400 hover:text-red-500" onClick={handleDelete}>
+              <Trash2 size={14} />
+            </Button>
+          </div>
         </div>
       </CardContent>
     </Card>
@@ -328,6 +341,9 @@ export default function StaffMessagesPage() {
                   setMessages((prev) =>
                     prev.map((m) => (m.message_id === id ? { ...m, is_read: true } : m))
                   )
+                }
+                onDelete={(id) =>
+                  setMessages((prev) => prev.filter((m) => m.message_id !== id))
                 }
               />
             ))}
