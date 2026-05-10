@@ -1,7 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import pool from "@/lib/db";
 
-export async function GET() {
+export async function GET(req: NextRequest) {
+  const { searchParams } = new URL(req.url);
+  const archived = searchParams.get("archived") === "true";
   const result = await pool.query(`
     SELECT
       i.invoice_id,
@@ -13,6 +15,7 @@ export async function GET() {
       i.due_date,
       i.status,
       i.issued_at,
+      i.is_archived,
       i.parent_user_id,
       i.child_id,
       u.first_name || ' ' || u.last_name AS parent_name,
@@ -21,8 +24,9 @@ export async function GET() {
     FROM invoices i
     JOIN users u ON u.user_id = i.parent_user_id
     JOIN children c ON c.child_id = i.child_id
+    WHERE i.is_archived = $1
     ORDER BY i.issued_at DESC
-  `);
+  `, [archived]);
   return NextResponse.json(result.rows);
 }
 

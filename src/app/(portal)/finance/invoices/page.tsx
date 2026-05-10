@@ -5,7 +5,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
-import { Search, Download, Filter, Mail, DollarSign, AlertCircle, Plus, CheckCircle, Clock, X } from "lucide-react";
+import { Search, Download, Filter, Mail, DollarSign, AlertCircle, Plus, CheckCircle, Clock, X, Archive, ArchiveRestore } from "lucide-react";
 
 type InvoiceRow = {
   invoice_id: number;
@@ -52,6 +52,7 @@ export default function FinanceInvoices() {
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("All");
+  const [showArchived, setShowArchived] = useState(false);
 
   // Generate Invoice dialog state
   const [genOpen, setGenOpen] = useState(false);
@@ -65,16 +66,35 @@ export default function FinanceInvoices() {
   const [genLoading, setGenLoading] = useState(false);
 
   useEffect(() => {
-    loadInvoices();
-  }, []);
+    loadInvoices(showArchived);
+  }, [showArchived]);
 
-  function loadInvoices() {
-    fetch("/api/finance/invoices")
+  function loadInvoices(archived = false) {
+    setLoading(true);
+    fetch(`/api/finance/invoices?archived=${archived}`)
       .then((r) => r.json())
       .then((data) => {
         setInvoices(data);
         setLoading(false);
       });
+  }
+
+  async function archiveInvoice(inv: InvoiceRow) {
+    await fetch(`/api/finance/invoices/${inv.invoice_id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ is_archived: true }),
+    });
+    loadInvoices(showArchived);
+  }
+
+  async function unarchiveInvoice(inv: InvoiceRow) {
+    await fetch(`/api/finance/invoices/${inv.invoice_id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ is_archived: false }),
+    });
+    loadInvoices(showArchived);
   }
 
   function openGenDialog() {
@@ -131,7 +151,7 @@ export default function FinanceInvoices() {
     });
     setGenLoading(false);
     setGenOpen(false);
-    loadInvoices();
+    loadInvoices(showArchived);
   }
 
   async function markPaid(inv: InvoiceRow) {
@@ -140,7 +160,7 @@ export default function FinanceInvoices() {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ status: "paid", amountPaid: inv.amount }),
     });
-    loadInvoices();
+    loadInvoices(showArchived);
   }
 
   async function markOverdue(inv: InvoiceRow) {
@@ -149,7 +169,7 @@ export default function FinanceInvoices() {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ status: "overdue" }),
     });
-    loadInvoices();
+    loadInvoices(showArchived);
   }
 
   function exportCSV() {
@@ -205,16 +225,30 @@ export default function FinanceInvoices() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold text-[#002040] mb-2">Invoices</h1>
-          <p className="text-gray-600">Manage all parent invoices and payments</p>
+          <h1 className="text-3xl font-bold text-[#002040] mb-2">
+            {showArchived ? "Archived Invoices" : "Invoices"}
+          </h1>
+          <p className="text-gray-600">
+            {showArchived ? "Invoices moved to archive" : "Manage all parent invoices and payments"}
+          </p>
         </div>
         <div className="flex gap-3">
+          <Button
+            variant={showArchived ? "default" : "outline"}
+            onClick={() => { setShowArchived((v) => !v); setStatusFilter("All"); setSearch(""); }}
+            className={showArchived ? "bg-gray-600 hover:bg-gray-700" : ""}
+          >
+            <Archive className="mr-2" size={16} />
+            {showArchived ? "View Active" : "Archived"}
+          </Button>
           <Button variant="outline" onClick={exportCSV}>
             <Download className="mr-2" size={16} />Export CSV
           </Button>
-          <Button className="bg-[#2888B8] hover:bg-[#1078A8]" onClick={openGenDialog}>
-            <Plus className="mr-2" size={16} />Generate Invoice
-          </Button>
+          {!showArchived && (
+            <Button className="bg-[#2888B8] hover:bg-[#1078A8]" onClick={openGenDialog}>
+              <Plus className="mr-2" size={16} />Generate Invoice
+            </Button>
+          )}
         </div>
       </div>
 
@@ -343,25 +377,32 @@ export default function FinanceInvoices() {
                   </div>
 
                   <div className="flex flex-col gap-2 min-w-[130px]">
-                    {inv.status !== "paid" && (
+                    {!showArchived && inv.status !== "paid" && (
                       <Button size="sm" className="bg-[#489858] hover:bg-[#378848]" onClick={() => markPaid(inv)}>
                         <CheckCircle className="mr-1.5" size={14} />Mark Paid
                       </Button>
                     )}
-                    {inv.status === "unpaid" && (
+                    {!showArchived && inv.status === "unpaid" && (
                       <Button size="sm" variant="outline" className="text-red-600 border-red-200 hover:bg-red-50" onClick={() => markOverdue(inv)}>
                         <AlertCircle className="mr-1.5" size={14} />Mark Overdue
                       </Button>
                     )}
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      asChild
-                    >
-                      <a href={`mailto:${inv.parent_email}?subject=Invoice ${inv.invoice_number} — GBD&body=Hi ${inv.parent_name.split(" ")[0]},%0A%0AThis is a reminder regarding invoice ${inv.invoice_number} for $${Number(inv.amount).toFixed(2)} due on ${new Date(inv.due_date).toLocaleDateString()}.%0A%0APlease reach out if you have any questions.%0A%0AThank you!`}>
-                        <Mail className="mr-1.5" size={14} />Contact
-                      </a>
-                    </Button>
+                    {!showArchived && (
+                      <Button size="sm" variant="outline" asChild>
+                        <a href={`mailto:${inv.parent_email}?subject=Invoice ${inv.invoice_number} — GBD&body=Hi ${inv.parent_name.split(" ")[0]},%0A%0AThis is a reminder regarding invoice ${inv.invoice_number} for $${Number(inv.amount).toFixed(2)} due on ${new Date(inv.due_date).toLocaleDateString()}.%0A%0APlease reach out if you have any questions.%0A%0AThank you!`}>
+                          <Mail className="mr-1.5" size={14} />Contact
+                        </a>
+                      </Button>
+                    )}
+                    {showArchived ? (
+                      <Button size="sm" variant="outline" className="text-gray-600 hover:bg-gray-50" onClick={() => unarchiveInvoice(inv)}>
+                        <ArchiveRestore className="mr-1.5" size={14} />Unarchive
+                      </Button>
+                    ) : (
+                      <Button size="sm" variant="outline" className="text-gray-400 hover:text-gray-600 hover:bg-gray-50" onClick={() => archiveInvoice(inv)}>
+                        <Archive className="mr-1.5" size={14} />Archive
+                      </Button>
+                    )}
                   </div>
                 </div>
               </CardContent>
