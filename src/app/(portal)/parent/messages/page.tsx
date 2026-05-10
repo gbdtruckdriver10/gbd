@@ -8,7 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { MessageSquare, Send, User, Inbox, Trash2 } from "lucide-react";
+import { MessageSquare, Send, User, Inbox, Trash2, Reply } from "lucide-react";
 import { toast } from "sonner";
 import { useAuth } from "@/contexts/AuthContext";
 
@@ -43,8 +43,10 @@ type Announcement = {
   audience: string;
 };
 
-function MessageCard({ msg, onRead, onDelete }: { msg: Message; onRead: (id: number) => void; onDelete: (id: number) => void }) {
+function MessageCard({ msg, currentUserId, onRead, onDelete }: { msg: Message; currentUserId: number; onRead: (id: number) => void; onDelete: (id: number) => void }) {
   const [open, setOpen] = useState(false);
+  const [replyText, setReplyText] = useState("");
+  const [replying, setReplying] = useState(false);
 
   const handleOpen = async () => {
     setOpen((v) => !v);
@@ -58,6 +60,30 @@ function MessageCard({ msg, onRead, onDelete }: { msg: Message; onRead: (id: num
     e.stopPropagation();
     await fetch(`/api/messages/${msg.message_id}`, { method: "DELETE" });
     onDelete(msg.message_id);
+  };
+
+  const handleReply = async (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (!replyText.trim()) return;
+    setReplying(true);
+    const res = await fetch("/api/messages", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        senderId: currentUserId,
+        receiverId: msg.sender_user_id,
+        subject: `Re: ${msg.subject}`,
+        body: replyText.trim(),
+      }),
+    });
+    if (res.ok) {
+      toast.success(`Reply sent to ${msg.sender_name}`);
+      setReplyText("");
+      setOpen(false);
+    } else {
+      toast.error("Failed to send reply");
+    }
+    setReplying(false);
   };
 
   return (
@@ -80,7 +106,26 @@ function MessageCard({ msg, onRead, onDelete }: { msg: Message; onRead: (id: num
                 {msg.subject}
               </p>
               {open ? (
-                <p className="text-sm text-gray-700 mt-2 whitespace-pre-wrap">{msg.body}</p>
+                <div onClick={(e) => e.stopPropagation()}>
+                  <p className="text-sm text-gray-700 mt-2 whitespace-pre-wrap">{msg.body}</p>
+                  <div className="mt-3 space-y-2 border-t pt-3">
+                    <Textarea
+                      rows={3}
+                      placeholder={`Reply to ${msg.sender_name}...`}
+                      value={replyText}
+                      onChange={(e) => setReplyText(e.target.value)}
+                    />
+                    <Button
+                      size="sm"
+                      className="bg-[#2888B8] hover:bg-[#1078A8]"
+                      onClick={handleReply}
+                      disabled={replying || !replyText.trim()}
+                    >
+                      <Reply size={14} className="mr-1" />
+                      {replying ? "Sending..." : "Send Reply"}
+                    </Button>
+                  </div>
+                </div>
               ) : (
                 <p className="text-xs text-gray-500 mt-1 line-clamp-1">{msg.body}</p>
               )}
@@ -281,6 +326,7 @@ export default function ParentMessages() {
               <MessageCard
                 key={msg.message_id}
                 msg={msg}
+                currentUserId={Number(user?.id)}
                 onRead={(id) =>
                   setMessages((prev) =>
                     prev.map((m) => (m.message_id === id ? { ...m, is_read: true } : m))
