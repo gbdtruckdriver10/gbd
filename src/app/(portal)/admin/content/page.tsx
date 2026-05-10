@@ -7,8 +7,21 @@ import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
-import { Plus, Edit, Trash2 } from "lucide-react";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Plus, Edit, Trash2, Calendar, MapPin, Clock } from "lucide-react";
 import { toast } from "sonner";
+import { useAuth } from "@/contexts/AuthContext";
+
+type Event = {
+  event_id: number;
+  title: string;
+  description: string | null;
+  event_date: string;
+  start_time: string | null;
+  end_time: string | null;
+  location: string | null;
+  audience: string;
+};
 
 type Announcement = {
   announcement_id: number;
@@ -21,7 +34,10 @@ type Announcement = {
   author: string;
 };
 
+const AUDIENCE_LABELS: Record<string, string> = { all: "Everyone", parents: "Parents", staff: "Staff", public: "Public" };
+
 export default function AdminContent() {
+  const { user } = useAuth();
   const [announcements, setAnnouncements] = useState<Announcement[]>([]);
   const [loading, setLoading] = useState(true);
   const [showNewForm, setShowNewForm] = useState(false);
@@ -30,10 +46,20 @@ export default function AdminContent() {
   const [editingId, setEditingId] = useState<number | null>(null);
   const [editData, setEditData] = useState({ title: "", body: "", audience: "all", priority: "normal" });
 
+  const [events, setEvents] = useState<Event[]>([]);
+  const [showEventForm, setShowEventForm] = useState(false);
+  const [eventForm, setEventForm] = useState({ title: "", description: "", event_date: "", start_time: "", end_time: "", location: "", audience: "public" });
+  const [savingEvent, setSavingEvent] = useState(false);
+
   useEffect(() => {
-    fetch("/api/admin/announcements")
-      .then((r) => r.json())
-      .then((data) => { setAnnouncements(data); setLoading(false); });
+    Promise.all([
+      fetch("/api/admin/announcements").then((r) => r.json()),
+      fetch("/api/admin/events").then((r) => r.json()),
+    ]).then(([anns, evts]) => {
+      setAnnouncements(anns);
+      setEvents(evts);
+      setLoading(false);
+    });
   }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -84,6 +110,33 @@ export default function AdminContent() {
     ));
     setEditingId(null);
     toast.success("Announcement updated");
+  };
+
+  const handleAddEvent = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!eventForm.title.trim() || !eventForm.event_date) { toast.error("Title and date are required"); return; }
+    setSavingEvent(true);
+    try {
+      const res = await fetch("/api/admin/events", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ...eventForm, createdByUserId: user?.id }),
+      });
+      const newEvent = await res.json();
+      if (!res.ok) { toast.error(newEvent.error ?? "Failed to add event"); return; }
+      setEvents((prev) => [...prev, newEvent].sort((a, b) => a.event_date.localeCompare(b.event_date)));
+      toast.success("Event added");
+      setEventForm({ title: "", description: "", event_date: "", start_time: "", end_time: "", location: "", audience: "public" });
+      setShowEventForm(false);
+    } finally {
+      setSavingEvent(false);
+    }
+  };
+
+  const handleDeleteEvent = async (id: number) => {
+    await fetch(`/api/events/${id}`, { method: "DELETE" });
+    setEvents((prev) => prev.filter((e) => e.event_id !== id));
+    toast.success("Event deleted");
   };
 
   if (loading) {
@@ -145,6 +198,108 @@ export default function AdminContent() {
           </CardContent>
         </Card>
       )}
+
+      {/* Events Section */}
+      <div className="space-y-4">
+        <div className="flex items-center justify-between">
+          <h3 className="text-xl font-bold text-[#002040] flex items-center gap-2">
+            <Calendar size={20} className="text-[#489858]" />
+            Upcoming Events
+          </h3>
+          <Button size="sm" variant="outline" onClick={() => setShowEventForm(!showEventForm)}>
+            <Plus className="mr-1" size={15} />
+            {showEventForm ? "Cancel" : "Add Event"}
+          </Button>
+        </div>
+
+        {showEventForm && (
+          <Card>
+            <CardContent className="p-6">
+              <form onSubmit={handleAddEvent} className="space-y-4">
+                <div className="grid md:grid-cols-2 gap-4">
+                  <div>
+                    <Label>Title *</Label>
+                    <Input className="mt-1" value={eventForm.title} onChange={(e) => setEventForm({ ...eventForm, title: e.target.value })} placeholder="e.g. Spring Picture Day" disabled={savingEvent} />
+                  </div>
+                  <div>
+                    <Label>Date *</Label>
+                    <Input className="mt-1" type="date" value={eventForm.event_date} onChange={(e) => setEventForm({ ...eventForm, event_date: e.target.value })} disabled={savingEvent} />
+                  </div>
+                  <div>
+                    <Label>Start Time</Label>
+                    <Input className="mt-1" type="time" value={eventForm.start_time} onChange={(e) => setEventForm({ ...eventForm, start_time: e.target.value })} disabled={savingEvent} />
+                  </div>
+                  <div>
+                    <Label>End Time</Label>
+                    <Input className="mt-1" type="time" value={eventForm.end_time} onChange={(e) => setEventForm({ ...eventForm, end_time: e.target.value })} disabled={savingEvent} />
+                  </div>
+                  <div>
+                    <Label>Location</Label>
+                    <Input className="mt-1" value={eventForm.location} onChange={(e) => setEventForm({ ...eventForm, location: e.target.value })} placeholder="e.g. Main Hall" disabled={savingEvent} />
+                  </div>
+                  <div>
+                    <Label>Audience</Label>
+                    <Select value={eventForm.audience} onValueChange={(v) => setEventForm({ ...eventForm, audience: v })} disabled={savingEvent}>
+                      <SelectTrigger className="mt-1"><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="public">Public</SelectItem>
+                        <SelectItem value="parents">Parents</SelectItem>
+                        <SelectItem value="staff">Staff</SelectItem>
+                        <SelectItem value="all">Everyone</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+                <div>
+                  <Label>Description</Label>
+                  <Textarea className="mt-1" rows={2} value={eventForm.description} onChange={(e) => setEventForm({ ...eventForm, description: e.target.value })} placeholder="Optional details..." disabled={savingEvent} />
+                </div>
+                <Button type="submit" className="bg-[#489858] hover:bg-[#3a7846]" disabled={savingEvent}>
+                  {savingEvent ? "Saving..." : "Add Event"}
+                </Button>
+              </form>
+            </CardContent>
+          </Card>
+        )}
+
+        {events.length === 0 ? (
+          <p className="text-sm text-gray-500">No upcoming events.</p>
+        ) : (
+          events.map((ev) => (
+            <Card key={ev.event_id}>
+              <CardContent className="p-4">
+                <div className="flex items-start justify-between gap-4">
+                  <div className="flex gap-4">
+                    <div className="w-14 text-center shrink-0">
+                      <div className="rounded-lg bg-[#489858] p-2 text-white text-xs font-medium">
+                        {new Date(ev.event_date + "T12:00:00").toLocaleDateString("en-US", { month: "short", day: "numeric" })}
+                      </div>
+                    </div>
+                    <div>
+                      <p className="font-semibold text-[#002040]">{ev.title}</p>
+                      <div className="flex flex-wrap gap-x-3 gap-y-1 mt-1 text-xs text-gray-500">
+                        {ev.start_time && (
+                          <span className="flex items-center gap-1"><Clock size={11} />{ev.start_time.slice(0, 5)}{ev.end_time ? `–${ev.end_time.slice(0, 5)}` : ""}</span>
+                        )}
+                        {ev.location && (
+                          <span className="flex items-center gap-1"><MapPin size={11} />{ev.location}</span>
+                        )}
+                      </div>
+                      {ev.description && <p className="text-xs text-gray-500 mt-1">{ev.description}</p>}
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2 shrink-0">
+                    <Badge variant="outline" className="text-[10px]">{AUDIENCE_LABELS[ev.audience] ?? ev.audience}</Badge>
+                    <Button variant="ghost" size="icon" className="h-7 w-7 text-gray-400 hover:text-red-500" onClick={() => handleDeleteEvent(ev.event_id)}>
+                      <Trash2 size={14} />
+                    </Button>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          ))
+        )}
+      </div>
 
       <div className="space-y-4">
         <h3 className="text-xl font-bold text-[#002040]">Recent Announcements</h3>
