@@ -31,37 +31,31 @@ const documents: DocumentItem[] = [
     name: "Parent Handbook 2026",
     icon: FileText,
     status: "Available",
-    href: "/docs/parent-handbook.pdf",
-  },
-  {
-    name: "Enrollment Forms",
-    icon: FileText,
-    status: "Required",
-    href: "/docs/enrollment-forms.pdf",
+    href: "/forms/parent-handbook-2026.pdf",
   },
   {
     name: "Emergency Contact Form",
     icon: FileText,
     status: "Required",
-    href: "/docs/emergency-contact.pdf",
+    href: "/forms/emergency-contact-form.pdf",
   },
   {
     name: "Medical Authorization",
     icon: FileText,
     status: "Required",
-    href: "/docs/medical-authorization.pdf",
+    href: "/forms/medical-authorization.pdf",
   },
   {
     name: "Immunization Records",
     icon: FileText,
     status: "Required",
-    href: "/docs/immunization-records.pdf",
+    href: "/forms/immunization-records.pdf",
   },
   {
     name: "Authorized Pickup List",
     icon: FileText,
     status: "Required",
-    href: "/docs/authorized-pickup.pdf",
+    href: "/forms/authorized-pickup-list.pdf",
   },
 ];
 
