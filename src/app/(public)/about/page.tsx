@@ -2,15 +2,29 @@
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Users, Heart, Award, Shield, Lock, Video, Building } from 'lucide-react';
-import { FaFacebook, FaLinkedin, FaXTwitter } from "react-icons/fa6";
-import { mockTeamMembers } from "@/data/mockData";
 import Link from "next/link";
 import Image from "next/image";
+import pool from "@/lib/db";
 
-export default function AboutPage() {
-  const activeTeamMembers = mockTeamMembers
-    .filter(member => member.isActive)
-    .sort((a, b) => a.displayOrder - b.displayOrder);
+const ROLE_LABELS: Record<string, string> = {
+  admin: "Director",
+  cfo: "Chief Financial Officer",
+  staff: "Educator",
+};
+
+export default async function AboutPage() {
+  let teamMembers: { user_id: number; first_name: string; last_name: string; role: string }[] = [];
+  try {
+    const result = await pool.query(
+      `SELECT user_id, first_name, last_name, role
+       FROM users
+       WHERE role IN ('staff', 'admin', 'cfo') AND show_on_website = true
+       ORDER BY CASE role WHEN 'admin' THEN 1 WHEN 'cfo' THEN 2 ELSE 3 END, last_name, first_name`
+    );
+    teamMembers = result.rows;
+  } catch {
+    teamMembers = [];
+  }
 
   return (
     <div>
@@ -122,70 +136,37 @@ export default function AboutPage() {
           </div>
 
           {/* Meet the Team */}
-          <div className="mb-16">
-            <div className="text-center mb-8">
-              <h2 className="text-3xl font-bold text-[#002040] mb-4">Meet Our Team</h2>
-              <p className="text-lg text-gray-600 max-w-2xl mx-auto">
-                Our experienced leadership team is dedicated to providing exceptional care and education
-              </p>
-            </div>
-            <div className="grid md:grid-cols-2 gap-8 max-w-4xl mx-auto">
-              {activeTeamMembers.map((member) => (
-                <Card key={member.id} className="hover:shadow-xl transition-all">
-                  <CardContent className="p-8">
-                    <div className="flex flex-col items-center text-center">
-                      <div className="relative w-32 h-32 mb-4">
-                        <Image
-                        src={member.image}
-                        alt={member.name}
-                        fill
-                        className="rounded-full object-cover border-4 border-[#2888B8]/20"
-                        sizes="128px"
-                        />
+          {teamMembers.length > 0 && (
+            <div className="mb-16">
+              <div className="text-center mb-8">
+                <h2 className="text-3xl font-bold text-[#002040] mb-4">Meet Our Team</h2>
+                <p className="text-lg text-gray-600 max-w-2xl mx-auto">
+                  Our experienced team is dedicated to providing exceptional care and education
+                </p>
+              </div>
+              <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6 max-w-5xl mx-auto">
+                {teamMembers.map((member) => (
+                  <Card key={member.user_id} className="hover:shadow-xl transition-all">
+                    <CardContent className="p-8">
+                      <div className="flex flex-col items-center text-center">
+                        <div className="w-24 h-24 rounded-full bg-[#2888B8]/10 flex items-center justify-center mb-4 border-4 border-[#2888B8]/20">
+                          <span className="text-2xl font-bold text-[#2888B8]">
+                            {member.first_name[0]}{member.last_name[0]}
+                          </span>
+                        </div>
+                        <h3 className="text-xl font-bold text-[#002040] mb-1">
+                          {member.first_name} {member.last_name}
+                        </h3>
+                        <p className="text-[#2888B8] font-semibold text-sm">
+                          {ROLE_LABELS[member.role] ?? member.role}
+                        </p>
                       </div>
-                      <h3 className="text-xl font-bold text-[#002040] mb-1">{member.name}</h3>
-                      <p className="text-[#2888B8] font-semibold mb-4">{member.title}</p>
-                      <p className="text-gray-600 text-sm leading-relaxed mb-6">{member.bio}</p>
-                      
-                      {/* Social Icons */}
-                      <div className="flex gap-3">
-                        {member.facebookUrl && (
-                          <a
-                            href={member.facebookUrl}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="w-10 h-10 rounded-full bg-[#2888B8]/10 hover:bg-[#2888B8] hover:text-white text-[#2888B8] flex items-center justify-center transition-all"
-                          >
-                            <FaFacebook size={18} />
-                          </a>
-                        )}
-                        {member.linkedinUrl && (
-                          <a
-                            href={member.linkedinUrl}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="w-10 h-10 rounded-full bg-[#2888B8]/10 hover:bg-[#2888B8] hover:text-white text-[#2888B8] flex items-center justify-center transition-all"
-                          >
-                            <FaLinkedin size={18} />
-                          </a>
-                        )}
-                        {member.twitterUrl && (
-                          <a
-                            href={member.twitterUrl}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="w-10 h-10 rounded-full bg-[#2888B8]/10 hover:bg-[#2888B8] hover:text-white text-[#2888B8] flex items-center justify-center transition-all"
-                          >
-                            <FaXTwitter size={18} />
-                          </a>
-                        )}
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
-              ))}
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
             </div>
-          </div>
+          )}
         </div>
       </section>
 
