@@ -130,7 +130,7 @@ export default function AdminDashboard() {
                   <div className="flex items-start justify-between mb-2">
                     <div>
                       <p className="font-semibold text-[#002040]">{app.child_name}</p>
-                      <p className="text-sm text-gray-600">{app.parent_name}</p>
+                      {app.parent_name && <p className="text-sm text-gray-600">{app.parent_name}</p>}
                     </div>
                     <Badge variant="outline" className={STATUS_CLASSES[app.application_status] ?? ""}>
                       {STATUS_DISPLAY[app.application_status] ?? app.application_status}

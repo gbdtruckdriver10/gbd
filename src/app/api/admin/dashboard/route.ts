@@ -14,7 +14,7 @@ export async function GET() {
       SELECT
         a.application_id,
         a.child_first_name || ' ' || a.child_last_name AS child_name,
-        COALESCE(u.first_name || ' ' || u.last_name, 'Unknown') AS parent_name,
+        NULLIF(TRIM(COALESCE(u.first_name, a.applicant_first_name, '') || ' ' || COALESCE(u.last_name, a.applicant_last_name, '')), '') AS parent_name,
         a.application_status,
         a.submitted_at::text,
         a.program_interest

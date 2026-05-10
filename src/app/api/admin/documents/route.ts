@@ -19,7 +19,7 @@ export async function GET(_req: NextRequest) {
        ORDER BY ch.first_name`
     ),
     pool.query(
-      `SELECT parent_user_id, child_id, document_type, status FROM parent_documents`
+      `SELECT parent_user_id, child_id, document_type, document_id FROM parent_documents`
     ),
   ]);
 
@@ -29,33 +29,37 @@ export async function GET(_req: NextRequest) {
     childrenByParent.get(row.parent_user_id)!.push(row);
   }
 
-  const uploadedByParent = new Map<number, { child_id: number | null; document_type: string }[]>();
+  const uploadedByParent = new Map<number, { child_id: number | null; document_type: string; document_id: number }[]>();
   for (const row of docsResult.rows) {
     if (!uploadedByParent.has(row.parent_user_id)) uploadedByParent.set(row.parent_user_id, []);
     uploadedByParent.get(row.parent_user_id)!.push(row);
   }
+
+  type DocInfo = { uploaded: boolean; document_id: number | null };
 
   const result = parentsResult.rows.map((parent) => {
     const children = childrenByParent.get(parent.user_id) ?? [];
     const uploaded = uploadedByParent.get(parent.user_id) ?? [];
 
     const childRows = children.map((child) => {
-      const docs: Record<string, boolean> = {};
+      const docs: Record<string, DocInfo> = {};
       for (const type of REQUIRED_PER_CHILD) {
-        docs[type] = uploaded.some((d) => d.child_id === child.child_id && d.document_type === type);
+        const match = uploaded.find((d) => d.child_id === child.child_id && d.document_type === type);
+        docs[type] = { uploaded: !!match, document_id: match?.document_id ?? null };
       }
       return { child_id: child.child_id, name: `${child.first_name} ${child.last_name}`, docs };
     });
 
-    const familyDocs: Record<string, boolean> = {};
+    const familyDocs: Record<string, DocInfo> = {};
     for (const type of REQUIRED_FAMILY) {
-      familyDocs[type] = uploaded.some((d) => d.child_id === null && d.document_type === type);
+      const match = uploaded.find((d) => d.child_id === null && d.document_type === type);
+      familyDocs[type] = { uploaded: !!match, document_id: match?.document_id ?? null };
     }
 
     const totalRequired = children.length * REQUIRED_PER_CHILD.length + REQUIRED_FAMILY.length;
     const totalComplete =
-      childRows.reduce((sum, c) => sum + Object.values(c.docs).filter(Boolean).length, 0) +
-      Object.values(familyDocs).filter(Boolean).length;
+      childRows.reduce((sum, c) => sum + Object.values(c.docs).filter((d) => d.uploaded).length, 0) +
+      Object.values(familyDocs).filter((d) => d.uploaded).length;
 
     return {
       parent_id: parent.user_id,

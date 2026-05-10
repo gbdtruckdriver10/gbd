@@ -7,7 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
-import { Search, MoveRight, UserMinus, Mail, Phone, GraduationCap, Plus, Minus, ShieldAlert, Pencil } from "lucide-react";
+import { Search, MoveRight, UserMinus, Mail, Phone, GraduationCap, Plus, Minus, ShieldAlert, Pencil, Trash2, Check, X } from "lucide-react";
 import { Textarea } from "@/components/ui/textarea";
 
 import { toast } from "sonner";
@@ -93,6 +93,12 @@ export default function AdminStudents() {
   const [allergiesText, setAllergiesText] = useState("");
   const [allergiesSaving, setAllergiesSaving] = useState(false);
 
+  const emptyContactForm = { full_name: "", relationship_to_child: "", phone: "", email: "", is_authorized_pickup: false };
+  const [addingContact, setAddingContact] = useState(false);
+  const [editingContactId, setEditingContactId] = useState<number | null>(null);
+  const [contactForm, setContactForm] = useState(emptyContactForm);
+  const [contactSaving, setContactSaving] = useState(false);
+
   useEffect(() => {
     Promise.all([
       fetch("/api/admin/students").then((r) => r.json()),
@@ -144,9 +150,79 @@ export default function AdminStudents() {
     setSelectedStudent(student);
     setContactsOpen(true);
     setContactsLoading(true);
+    setAddingContact(false);
+    setEditingContactId(null);
+    setContactForm(emptyContactForm);
     const data = await fetch(`/api/admin/students/${student.child_id}/contacts`).then((r) => r.json());
     setContacts(data);
     setContactsLoading(false);
+  };
+
+  const handleAddContact = async () => {
+    if (!selectedStudent || !contactForm.full_name || !contactForm.relationship_to_child) return;
+    setContactSaving(true);
+    const res = await fetch(`/api/admin/students/${selectedStudent.child_id}/contacts`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(contactForm),
+    });
+    if (res.ok) {
+      const created = await res.json();
+      setContacts((prev) => [...prev, created]);
+      setAddingContact(false);
+      setContactForm(emptyContactForm);
+      toast.success("Contact added");
+    } else {
+      toast.error("Failed to add contact");
+    }
+    setContactSaving(false);
+  };
+
+  const handleEditContact = async () => {
+    if (!selectedStudent || editingContactId === null) return;
+    setContactSaving(true);
+    const res = await fetch(`/api/admin/students/${selectedStudent.child_id}/contacts`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ contact_id: editingContactId, ...contactForm }),
+    });
+    if (res.ok) {
+      const updated = await res.json();
+      setContacts((prev) => prev.map((c) => c.contact_id === editingContactId ? updated : c));
+      setEditingContactId(null);
+      setContactForm(emptyContactForm);
+      toast.success("Contact updated");
+    } else {
+      toast.error("Failed to update contact");
+    }
+    setContactSaving(false);
+  };
+
+  const handleDeleteContact = async (contactId: number) => {
+    if (!selectedStudent) return;
+    const res = await fetch(`/api/admin/students/${selectedStudent.child_id}/contacts`, {
+      method: "DELETE",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ contact_id: contactId }),
+    });
+    if (res.ok) {
+      setContacts((prev) => prev.filter((c) => c.contact_id !== contactId));
+      toast.success("Contact removed");
+    } else {
+      toast.error("Failed to remove contact");
+    }
+  };
+
+  const startEditContact = (c: EmergencyContact) => {
+    setEditingContactId(c.contact_id);
+    setContactForm({
+      full_name: c.full_name,
+      relationship_to_child: c.relationship_to_child,
+      phone: c.phone ?? "",
+      email: c.email ?? "",
+      is_authorized_pickup: c.is_authorized_pickup,
+    });
+    setAddingContact(false);
   };
 
   const openPrograms = async (student: Student) => {
@@ -400,8 +476,8 @@ export default function AdminStudents() {
       </Dialog>
 
       {/* Emergency Contacts Dialog */}
-      <Dialog open={contactsOpen} onOpenChange={setContactsOpen}>
-        <DialogContent className="sm:max-w-md max-h-[80vh] overflow-y-auto">
+      <Dialog open={contactsOpen} onOpenChange={(open) => { setContactsOpen(open); if (!open) { setAddingContact(false); setEditingContactId(null); } }}>
+        <DialogContent className="sm:max-w-lg max-h-[85vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle className="text-[#002040]">
               {selectedStudent?.first_name} {selectedStudent?.last_name} — Emergency Contacts
@@ -410,24 +486,110 @@ export default function AdminStudents() {
           <div className="space-y-3 py-2">
             {contactsLoading ? (
               <p className="text-center text-sm text-gray-500 py-6">Loading contacts...</p>
-            ) : contacts.length === 0 ? (
-              <p className="text-center text-sm text-gray-500 py-6">No emergency contacts on file.</p>
             ) : (
-              contacts.map((c) => (
-                <div key={c.contact_id} className="rounded-lg border p-3 space-y-1">
-                  <div className="flex items-center justify-between">
-                    <p className="font-medium text-[#002040]">{c.full_name}</p>
-                    {c.is_authorized_pickup && (
-                      <span className="text-xs bg-green-100 text-green-700 px-2 py-0.5 rounded-full">Authorized Pickup</span>
-                    )}
+              <>
+                {contacts.length === 0 && !addingContact && (
+                  <p className="text-center text-sm text-gray-500 py-4">No emergency contacts on file.</p>
+                )}
+                {contacts.map((c) => (
+                  editingContactId === c.contact_id ? (
+                    <div key={c.contact_id} className="rounded-lg border border-[#2888B8] p-3 space-y-2 bg-blue-50/40">
+                      <div className="grid grid-cols-2 gap-2">
+                        <div>
+                          <Label className="text-xs">Name</Label>
+                          <Input className="mt-0.5 h-8 text-sm" value={contactForm.full_name} onChange={(e) => setContactForm((f) => ({ ...f, full_name: e.target.value }))} />
+                        </div>
+                        <div>
+                          <Label className="text-xs">Relationship</Label>
+                          <Input className="mt-0.5 h-8 text-sm" value={contactForm.relationship_to_child} onChange={(e) => setContactForm((f) => ({ ...f, relationship_to_child: e.target.value }))} />
+                        </div>
+                        <div>
+                          <Label className="text-xs">Phone</Label>
+                          <Input className="mt-0.5 h-8 text-sm" value={contactForm.phone} onChange={(e) => setContactForm((f) => ({ ...f, phone: e.target.value }))} />
+                        </div>
+                        <div>
+                          <Label className="text-xs">Email</Label>
+                          <Input className="mt-0.5 h-8 text-sm" value={contactForm.email} onChange={(e) => setContactForm((f) => ({ ...f, email: e.target.value }))} />
+                        </div>
+                      </div>
+                      <label className="flex items-center gap-2 text-sm cursor-pointer select-none">
+                        <input type="checkbox" className="h-4 w-4 rounded" checked={contactForm.is_authorized_pickup} onChange={(e) => setContactForm((f) => ({ ...f, is_authorized_pickup: e.target.checked }))} />
+                        Authorized for pickup
+                      </label>
+                      <div className="flex gap-2 pt-1">
+                        <Button size="sm" className="bg-[#2888B8] hover:bg-[#1078A8] h-7 text-xs" onClick={handleEditContact} disabled={contactSaving}>
+                          <Check size={12} className="mr-1" />{contactSaving ? "Saving..." : "Save"}
+                        </Button>
+                        <Button size="sm" variant="outline" className="h-7 text-xs" onClick={() => { setEditingContactId(null); setContactForm(emptyContactForm); }}>
+                          <X size={12} className="mr-1" />Cancel
+                        </Button>
+                      </div>
+                    </div>
+                  ) : (
+                    <div key={c.contact_id} className="rounded-lg border p-3 space-y-1">
+                      <div className="flex items-center justify-between">
+                        <p className="font-medium text-[#002040]">{c.full_name}</p>
+                        <div className="flex items-center gap-1">
+                          {c.is_authorized_pickup && (
+                            <span className="text-xs bg-green-100 text-green-700 px-2 py-0.5 rounded-full">Authorized Pickup</span>
+                          )}
+                          <Button variant="ghost" size="icon" className="h-6 w-6 text-gray-400 hover:text-[#2888B8]" onClick={() => startEditContact(c)}>
+                            <Pencil size={12} />
+                          </Button>
+                          <Button variant="ghost" size="icon" className="h-6 w-6 text-gray-400 hover:text-red-500" onClick={() => handleDeleteContact(c.contact_id)}>
+                            <Trash2 size={12} />
+                          </Button>
+                        </div>
+                      </div>
+                      <p className="text-xs text-gray-500 capitalize">{c.relationship_to_child}</p>
+                      <div className="flex gap-4 text-xs text-gray-600 mt-1">
+                        {c.phone && <span className="flex items-center gap-1"><Phone size={11} />{c.phone}</span>}
+                        {c.email && <span className="flex items-center gap-1"><Mail size={11} />{c.email}</span>}
+                      </div>
+                    </div>
+                  )
+                ))}
+
+                {addingContact ? (
+                  <div className="rounded-lg border border-[#2888B8] p-3 space-y-2 bg-blue-50/40">
+                    <p className="text-xs font-semibold text-[#002040] uppercase tracking-wide">New Contact</p>
+                    <div className="grid grid-cols-2 gap-2">
+                      <div>
+                        <Label className="text-xs">Name *</Label>
+                        <Input className="mt-0.5 h-8 text-sm" placeholder="Full name" value={contactForm.full_name} onChange={(e) => setContactForm((f) => ({ ...f, full_name: e.target.value }))} />
+                      </div>
+                      <div>
+                        <Label className="text-xs">Relationship *</Label>
+                        <Input className="mt-0.5 h-8 text-sm" placeholder="e.g. Grandmother" value={contactForm.relationship_to_child} onChange={(e) => setContactForm((f) => ({ ...f, relationship_to_child: e.target.value }))} />
+                      </div>
+                      <div>
+                        <Label className="text-xs">Phone</Label>
+                        <Input className="mt-0.5 h-8 text-sm" placeholder="Phone number" value={contactForm.phone} onChange={(e) => setContactForm((f) => ({ ...f, phone: e.target.value }))} />
+                      </div>
+                      <div>
+                        <Label className="text-xs">Email</Label>
+                        <Input className="mt-0.5 h-8 text-sm" placeholder="Email (optional)" value={contactForm.email} onChange={(e) => setContactForm((f) => ({ ...f, email: e.target.value }))} />
+                      </div>
+                    </div>
+                    <label className="flex items-center gap-2 text-sm cursor-pointer select-none">
+                      <input type="checkbox" className="h-4 w-4 rounded" checked={contactForm.is_authorized_pickup} onChange={(e) => setContactForm((f) => ({ ...f, is_authorized_pickup: e.target.checked }))} />
+                      Authorized for pickup
+                    </label>
+                    <div className="flex gap-2 pt-1">
+                      <Button size="sm" className="bg-[#489858] hover:bg-[#3a7846] h-7 text-xs" onClick={handleAddContact} disabled={contactSaving || !contactForm.full_name || !contactForm.relationship_to_child}>
+                        <Check size={12} className="mr-1" />{contactSaving ? "Adding..." : "Add Contact"}
+                      </Button>
+                      <Button size="sm" variant="outline" className="h-7 text-xs" onClick={() => { setAddingContact(false); setContactForm(emptyContactForm); }}>
+                        <X size={12} className="mr-1" />Cancel
+                      </Button>
+                    </div>
                   </div>
-                  <p className="text-xs text-gray-500 capitalize">{c.relationship_to_child}</p>
-                  <div className="flex gap-4 text-xs text-gray-600 mt-1">
-                    <span className="flex items-center gap-1"><Phone size={11} />{c.phone}</span>
-                    {c.email && <span className="flex items-center gap-1"><Mail size={11} />{c.email}</span>}
-                  </div>
-                </div>
-              ))
+                ) : (
+                  <Button variant="outline" size="sm" className="w-full border-dashed text-gray-500 hover:text-[#2888B8]" onClick={() => { setAddingContact(true); setEditingContactId(null); setContactForm(emptyContactForm); }}>
+                    <Plus size={14} className="mr-1" />Add Contact
+                  </Button>
+                )}
+              </>
             )}
           </div>
           <DialogFooter>

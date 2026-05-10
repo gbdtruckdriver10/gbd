@@ -1,21 +1,24 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { CheckCircle, XCircle } from "lucide-react";
+import { CheckCircle, XCircle, ExternalLink } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+
+type DocInfo = { uploaded: boolean; document_id: number | null };
 
 type ChildRow = {
   child_id: number;
   name: string;
-  docs: Record<string, boolean>;
+  docs: Record<string, DocInfo>;
 };
 
 type ParentRow = {
   parent_id: number;
   parent_name: string;
   children: ChildRow[];
-  family_docs: Record<string, boolean>;
+  family_docs: Record<string, DocInfo>;
   total_required: number;
   total_complete: number;
 };
@@ -30,13 +33,24 @@ const FAMILY_DOC_LABELS: Record<string, string> = {
   authorized_pickup: "Authorized Pickup",
 };
 
-function DocIndicator({ complete, label }: { complete: boolean; label: string }) {
+function DocIndicator({ info, label }: { info: DocInfo; label: string }) {
   return (
     <div className="flex items-center gap-1 text-xs">
-      {complete
+      {info.uploaded
         ? <CheckCircle size={14} className="shrink-0 text-green-500" />
         : <XCircle size={14} className="shrink-0 text-red-400" />}
-      <span className={complete ? "text-gray-600" : "text-red-500 font-medium"}>{label}</span>
+      <span className={info.uploaded ? "text-gray-600" : "text-red-500 font-medium"}>{label}</span>
+      {info.uploaded && info.document_id && (
+        <Button
+          variant="ghost"
+          size="icon"
+          className="h-5 w-5 text-[#2888B8] hover:text-[#1078A8]"
+          onClick={() => window.open(`/api/parent/documents/${info.document_id}/download`, "_blank")}
+          title="View document"
+        >
+          <ExternalLink size={11} />
+        </Button>
+      )}
     </div>
   );
 }
@@ -111,7 +125,7 @@ export default function AdminDocumentsPage() {
                       <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-gray-400">{child.name}</p>
                       <div className="flex flex-wrap gap-x-6 gap-y-1">
                         {Object.entries(CHILD_DOC_LABELS).map(([type, label]) => (
-                          <DocIndicator key={type} complete={child.docs[type] ?? false} label={label} />
+                          <DocIndicator key={type} info={child.docs[type] ?? { uploaded: false, document_id: null }} label={label} />
                         ))}
                       </div>
                     </div>
@@ -121,7 +135,7 @@ export default function AdminDocumentsPage() {
                     <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-gray-400">Family</p>
                     <div className="flex flex-wrap gap-x-6 gap-y-1">
                       {Object.entries(FAMILY_DOC_LABELS).map(([type, label]) => (
-                        <DocIndicator key={type} complete={parent.family_docs[type] ?? false} label={label} />
+                        <DocIndicator key={type} info={parent.family_docs[type] ?? { uploaded: false, document_id: null }} label={label} />
                       ))}
                     </div>
                   </div>

@@ -42,7 +42,9 @@ export default function StaffCheckIn() {
   const [attendance, setAttendance] = useState<AttendanceRecord[]>([]);
   const [loadingRoster, setLoadingRoster] = useState(true);
 
-  const [selectedAttendanceChild, setSelectedAttendanceChild] = useState("");
+  const [selectedChildIds, setSelectedChildIds] = useState<Set<number>>(new Set());
+  const [checkingIn, setCheckingIn] = useState(false);
+  const [checkingOut, setCheckingOut] = useState(false);
   const [selectedNoteChild, setSelectedNoteChild] = useState("");
   const [dailyNote, setDailyNote] = useState("");
   const [mealsTaken, setMealsTaken] = useState({ breakfast: false, lunch: false, snack: false });
@@ -68,61 +70,56 @@ export default function StaffCheckIn() {
     });
   }, [user?.id]);
 
-  const handleCheckIn = async () => {
-    if (!selectedAttendanceChild || !user?.id) {
-      toast.error("Please select a child");
-      return;
-    }
-    const childId = Number(selectedAttendanceChild);
-    const alreadyIn = attendance.some((a) => a.child_id === childId);
-    if (alreadyIn) {
-      toast.error("This child is already checked in today");
-      return;
-    }
-    const res = await fetch("/api/staff/attendance", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ staffId: user.id, childId, classroomId, action: "checkin" }),
+  const toggleChild = (childId: number) => {
+    setSelectedChildIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(childId)) next.delete(childId);
+      else next.add(childId);
+      return next;
     });
-    if (res.ok) {
-      const child = children.find((c) => c.child_id === childId);
-      toast.success(`${child?.first_name} checked in`);
-      setSelectedAttendanceChild("");
-      refreshAttendance();
-    } else {
-      const err = await res.json();
-      toast.error(err.error ?? "Check-in failed");
-    }
+  };
+
+  const handleCheckIn = async () => {
+    if (selectedChildIds.size === 0 || !user?.id) { toast.error("Select at least one child"); return; }
+    const eligible = [...selectedChildIds].filter((id) => !attendance.some((a) => a.child_id === id));
+    if (eligible.length === 0) { toast.error("All selected children are already checked in"); return; }
+    setCheckingIn(true);
+    await Promise.all(
+      eligible.map((childId) =>
+        fetch("/api/staff/attendance", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ staffId: user.id, childId, classroomId, action: "checkin" }),
+        })
+      )
+    );
+    toast.success(`${eligible.length} ${eligible.length === 1 ? "child" : "children"} checked in`);
+    setSelectedChildIds(new Set());
+    refreshAttendance();
+    setCheckingIn(false);
   };
 
   const handleCheckOut = async () => {
-    if (!selectedAttendanceChild || !user?.id) {
-      toast.error("Please select a child");
-      return;
-    }
-    const childId = Number(selectedAttendanceChild);
-    const record = attendance.find((a) => a.child_id === childId);
-    if (!record) {
-      toast.error("This child has not been checked in today");
-      return;
-    }
-    if (record.check_out_time) {
-      toast.error("This child is already checked out");
-      return;
-    }
-    const res = await fetch("/api/staff/attendance", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ staffId: user.id, childId, classroomId, action: "checkout" }),
+    if (selectedChildIds.size === 0 || !user?.id) { toast.error("Select at least one child"); return; }
+    const eligible = [...selectedChildIds].filter((id) => {
+      const rec = attendance.find((a) => a.child_id === id);
+      return rec && !rec.check_out_time;
     });
-    if (res.ok) {
-      const child = children.find((c) => c.child_id === childId);
-      toast.success(`${child?.first_name} checked out`);
-      setSelectedAttendanceChild("");
-      refreshAttendance();
-    } else {
-      toast.error("Check-out failed");
-    }
+    if (eligible.length === 0) { toast.error("None of the selected children are currently checked in"); return; }
+    setCheckingOut(true);
+    await Promise.all(
+      eligible.map((childId) =>
+        fetch("/api/staff/attendance", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ staffId: user.id, childId, classroomId, action: "checkout" }),
+        })
+      )
+    );
+    toast.success(`${eligible.length} ${eligible.length === 1 ? "child" : "children"} checked out`);
+    setSelectedChildIds(new Set());
+    refreshAttendance();
+    setCheckingOut(false);
   };
 
   const handleSaveNote = async () => {
@@ -169,40 +166,79 @@ export default function StaffCheckIn() {
       <div className="grid lg:grid-cols-2 gap-6">
         <Card>
           <CardContent className="p-6">
-            <h3 className="text-xl font-bold text-[#002040] mb-4">Check-In / Check-Out</h3>
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-xl font-bold text-[#002040]">Check-In / Check-Out</h3>
+              {selectedChildIds.size > 0 && (
+                <button className="text-xs text-gray-400 hover:text-gray-600 underline" onClick={() => setSelectedChildIds(new Set())}>
+                  Clear ({selectedChildIds.size})
+                </button>
+              )}
+            </div>
+
             <div className="space-y-4">
               <div>
-                <label className="text-sm font-medium mb-2 block">Select Child</label>
-                <Select value={selectedAttendanceChild} onValueChange={setSelectedAttendanceChild}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Choose a child..." />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {children.map((child) => {
-                      const att = attendance.find((a) => a.child_id === child.child_id);
-                      const status = !att ? "" : att.check_out_time ? " (checked out)" : " (checked in)";
-                      return (
-                        <SelectItem key={child.child_id} value={String(child.child_id)}>
-                          {child.first_name} {child.last_name}{status}
-                        </SelectItem>
-                      );
-                    })}
-                  </SelectContent>
-                </Select>
+                <div className="flex items-center justify-between mb-2">
+                  <label className="text-sm font-medium">Select Children</label>
+                  <div className="flex gap-2">
+                    <button
+                      className="text-xs text-[#2888B8] hover:underline"
+                      onClick={() => setSelectedChildIds(new Set(children.filter((c) => !attendance.some((a) => a.child_id === c.child_id)).map((c) => c.child_id)))}
+                    >
+                      All not checked in
+                    </button>
+                    <span className="text-xs text-gray-300">·</span>
+                    <button
+                      className="text-xs text-[#2888B8] hover:underline"
+                      onClick={() => setSelectedChildIds(new Set(children.filter((c) => { const a = attendance.find((a) => a.child_id === c.child_id); return a && !a.check_out_time; }).map((c) => c.child_id)))}
+                    >
+                      All checked in
+                    </button>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-2 max-h-64 overflow-y-auto pr-1">
+                  {children.map((child) => {
+                    const att = attendance.find((a) => a.child_id === child.child_id);
+                    const isPresent = !!att && !att.check_out_time;
+                    const isCheckedOut = !!att?.check_out_time;
+                    const isSelected = selectedChildIds.has(child.child_id);
+                    return (
+                      <button
+                        key={child.child_id}
+                        onClick={() => toggleChild(child.child_id)}
+                        className={`flex items-center gap-2 rounded-lg border p-2.5 text-left transition-all ${
+                          isSelected
+                            ? "border-[#2888B8] bg-[#2888B8]/10 ring-1 ring-[#2888B8]"
+                            : "border-gray-200 bg-gray-50 hover:border-gray-300 hover:bg-gray-100"
+                        }`}
+                      >
+                        <div className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold shrink-0 ${isSelected ? "bg-[#2888B8] text-white" : "bg-[#2888B8]/10 text-[#2888B8]"}`}>
+                          {child.first_name[0]}{child.last_name[0]}
+                        </div>
+                        <div className="min-w-0">
+                          <p className="text-sm font-medium text-[#002040] truncate">{child.first_name} {child.last_name}</p>
+                          <p className={`text-[10px] font-medium ${isPresent ? "text-green-600" : isCheckedOut ? "text-gray-500" : "text-yellow-600"}`}>
+                            {isPresent ? `In ${formatTime(att!.check_in_time)}` : isCheckedOut ? "Checked out" : "Not arrived"}
+                          </p>
+                        </div>
+                      </button>
+                    );
+                  })}
+                </div>
               </div>
 
               <div className="grid grid-cols-2 gap-3">
-                <Button onClick={handleCheckIn} className="bg-[#489858] hover:bg-[#3a7846]">
-                  <LogIn className="mr-2" size={20} />
-                  Check In
+                <Button onClick={handleCheckIn} className="bg-[#489858] hover:bg-[#3a7846]" disabled={checkingIn || selectedChildIds.size === 0}>
+                  <LogIn className="mr-2" size={18} />
+                  {checkingIn ? "Checking in..." : `Check In${selectedChildIds.size > 0 ? ` (${selectedChildIds.size})` : ""}`}
                 </Button>
-                <Button onClick={handleCheckOut} className="bg-[#E05830] hover:bg-[#c74a26]">
-                  <LogOut className="mr-2" size={20} />
-                  Check Out
+                <Button onClick={handleCheckOut} className="bg-[#E05830] hover:bg-[#c74a26]" disabled={checkingOut || selectedChildIds.size === 0}>
+                  <LogOut className="mr-2" size={18} />
+                  {checkingOut ? "Checking out..." : `Check Out${selectedChildIds.size > 0 ? ` (${selectedChildIds.size})` : ""}`}
                 </Button>
               </div>
 
-              <div className="p-4 bg-blue-50 border border-blue-200 rounded-lg text-sm text-blue-900">
+              <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg text-sm text-blue-900">
                 <strong>Tip:</strong> Always verify the person dropping off or picking up is on the authorized list.
               </div>
             </div>
