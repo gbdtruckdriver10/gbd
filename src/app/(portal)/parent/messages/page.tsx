@@ -311,7 +311,20 @@ export default function ParentMessages() {
                       <p className="text-sm font-semibold text-[#002040] mt-0.5">{msg.subject}</p>
                       <p className="text-xs text-gray-500 mt-1 line-clamp-2">{msg.body}</p>
                     </div>
-                    <span className="text-xs text-gray-400 shrink-0">{timeAgo(msg.sent_at)}</span>
+                    <div className="flex items-center gap-2 shrink-0">
+                      <span className="text-xs text-gray-400">{timeAgo(msg.sent_at)}</span>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-7 w-7 text-gray-400 hover:text-red-500"
+                        onClick={async () => {
+                          await fetch(`/api/messages/${msg.message_id}`, { method: "DELETE" });
+                          setMessages((prev) => prev.filter((m) => m.message_id !== msg.message_id));
+                        }}
+                      >
+                        <Trash2 size={14} />
+                      </Button>
+                    </div>
                   </div>
                 </CardContent>
               </Card>
