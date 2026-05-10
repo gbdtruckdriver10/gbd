@@ -54,45 +54,33 @@ const faqs = [
   }
 ];
 
-// Alex and Alexis: This is Mock function to simulate API call - replace with real implementation when ready...
-// sends data to /api/faq-question endpoint which you will create to handle storing questions in DB or sending email notifications.
-/*async function submitFAQQuestion(payload: { name: string; email: string; question: string }) {
-  const res = await fetch("/api/faq-question", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(payload),
-  });
-
-  if (!res.ok) throw new Error("Failed to submit question");
-}*/ 
-
 export default function FAQPage() {
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [question, setQuestion] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const handleSubmit = async (e: React.SubmitEvent) => {
-  e.preventDefault();
-  if (isSubmitting) return;
-
-  try {
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (isSubmitting) return;
     setIsSubmitting(true);
-
-    // Alex and Alexis this is a Mock delay (remove/fix later when you connect to DB/API)
-    await new Promise((r) => setTimeout(r, 700));
-
-    toast.success("Question submitted! We'll respond within 24 hours.");
-    setName("");
-    setEmail("");
-    setQuestion("");
-  } catch (err) {
-    console.error(err);
-    toast.error("Something went wrong. Please try again.");
-  } finally {
-    setIsSubmitting(false);
-  }
-};
+    try {
+      const res = await fetch("/api/contact", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name, email, inquiryType: "faq", message: question }),
+      });
+      if (!res.ok) throw new Error("Failed");
+      toast.success("Question submitted! We'll respond within 24 hours.");
+      setName("");
+      setEmail("");
+      setQuestion("");
+    } catch {
+      toast.error("Something went wrong. Please try again.");
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
 
   return (
     <div>
