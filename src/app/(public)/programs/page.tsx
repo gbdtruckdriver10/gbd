@@ -116,7 +116,7 @@ export default function ProgramsPage() {
 
                     <div className="mt-6 flex gap-3">
                       <Button asChild className="flex-1 bg-[#2888B8] hover:bg-[#1078A8]">
-                        <Link href="/contact">Enroll Now</Link>
+                        <Link href="/apply">Enroll Now</Link>
                       </Button>
                       <Button variant="outline" asChild className="flex-1">
                         <Link href="/contact">Request Info</Link>
