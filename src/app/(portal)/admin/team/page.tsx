@@ -11,7 +11,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Switch } from "@/components/ui/switch";
-import { UserPlus, Trash2, Pencil, Eye, EyeOff } from "lucide-react";
+import { UserPlus, Trash2, Pencil, Eye, EyeOff, Upload } from "lucide-react";
 import { toast } from "sonner";
 
 type Member = {
@@ -63,6 +63,7 @@ export default function AdminTeam() {
   const [editTarget, setEditTarget] = useState<Member | null>(null);
   const [editForm, setEditForm] = useState(BLANK_EDIT);
   const [editSaving, setEditSaving] = useState(false);
+  const [photoUploading, setPhotoUploading] = useState(false);
 
   const [form, setForm] = useState({
     firstName: "", lastName: "", email: "", role: "staff", password: "",
@@ -336,15 +337,52 @@ export default function AdminTeam() {
               />
             </div>
             <div>
-              <Label>Image Path</Label>
-              <Input
-                className="mt-1"
-                placeholder="/team/firstname.jpg"
-                value={editForm.profile_image}
-                onChange={(e) => setEditForm({ ...editForm, profile_image: e.target.value })}
-                disabled={editSaving}
-              />
-              <p className="text-xs text-gray-400 mt-1">Path to image in /public folder. Recommended: square, at least 400×400px</p>
+              <Label>Profile Photo</Label>
+              <div className="mt-1 flex items-center gap-3">
+                {editForm.profile_image && (
+                  <div className="relative w-14 h-14 rounded-full overflow-hidden border-2 border-[#2888B8]/20 shrink-0">
+                    <Image src={editForm.profile_image} alt="Preview" fill className="object-cover" sizes="56px" />
+                  </div>
+                )}
+                <label className={`flex items-center gap-2 px-4 py-2 rounded-md border border-gray-300 text-sm cursor-pointer hover:bg-gray-50 transition-colors ${photoUploading ? "opacity-50 pointer-events-none" : ""}`}>
+                  <Upload size={14} />
+                  {photoUploading ? "Uploading..." : editForm.profile_image ? "Change Photo" : "Upload Photo"}
+                  <input
+                    type="file"
+                    accept="image/*"
+                    className="hidden"
+                    disabled={photoUploading || editSaving}
+                    onChange={async (e) => {
+                      const file = e.target.files?.[0];
+                      if (!file || !editTarget) return;
+                      setPhotoUploading(true);
+                      try {
+                        const fd = new FormData();
+                        fd.append("file", file);
+                        fd.append("userId", String(editTarget.user_id));
+                        const res = await fetch("/api/admin/team/photo", { method: "POST", body: fd });
+                        const data = await res.json();
+                        if (!res.ok) { toast.error(data.error ?? "Upload failed"); return; }
+                        setEditForm((f) => ({ ...f, profile_image: data.url }));
+                        setMembers((prev) => prev.map((m) => m.user_id === editTarget.user_id ? { ...m, profile_image: data.url } : m));
+                        toast.success("Photo uploaded");
+                      } finally {
+                        setPhotoUploading(false);
+                      }
+                    }}
+                  />
+                </label>
+                {editForm.profile_image && (
+                  <button
+                    type="button"
+                    className="text-xs text-red-400 hover:text-red-600"
+                    onClick={() => setEditForm((f) => ({ ...f, profile_image: "" }))}
+                  >
+                    Remove
+                  </button>
+                )}
+              </div>
+              <p className="text-xs text-gray-400 mt-1">Recommended: square, at least 400×400px</p>
             </div>
             <div className="grid grid-cols-3 gap-3">
               <div>
