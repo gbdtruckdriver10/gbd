@@ -30,7 +30,7 @@ export async function POST(req: NextRequest) {
       .from("team-photos")
       .getPublicUrl(storagePath);
 
-    const publicUrl = data.publicUrl;
+    const publicUrl = `${data.publicUrl}?t=${Date.now()}`;
 
     await pool.query(
       `UPDATE users SET profile_image = $1 WHERE user_id = $2`,
