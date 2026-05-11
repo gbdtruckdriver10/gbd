@@ -6,7 +6,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { GBDLogo } from "@/components/GBDLogo";
 import { Button } from "@/components/ui/button";
 import { LayoutDashboard, Users, FileText, Calendar, MessageSquare, GraduationCap, ClipboardList, UserCheck, AlertCircle,
-  LogOut, Home, DollarSign, BarChart3, FolderOpen, Menu, X, Inbox } from "lucide-react";
+  LogOut, Home, DollarSign, BarChart3, FolderOpen, Menu, X } from "lucide-react";
 import { useEffect, useState } from "react";
 
 export function PortalLayout({ children }: { children: React.ReactNode }) {
@@ -82,7 +82,6 @@ export function PortalLayout({ children }: { children: React.ReactNode }) {
           { path: "/admin/team", label: "Team", icon: FolderOpen },
           { path: "/admin/documents", label: "Documents", icon: FolderOpen },
           { path: "/admin/messages", label: "Messages", icon: MessageSquare },
-          { path: "/admin/contact-inquiries", label: "Inquiries", icon: Inbox },
         ];
       case "cfo":
         return [
