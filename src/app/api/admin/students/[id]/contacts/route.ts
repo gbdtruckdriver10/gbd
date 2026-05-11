@@ -26,8 +26,8 @@ export async function POST(
     return NextResponse.json({ error: "Name and relationship are required" }, { status: 400 });
   }
   const result = await pool.query(
-    `INSERT INTO child_contacts (child_id, full_name, relationship_to_child, phone, email, is_authorized_pickup)
-     VALUES ($1, $2, $3, $4, $5, $6)
+    `INSERT INTO child_contacts (child_id, full_name, relationship_to_child, phone, email, is_authorized_pickup, contact_type)
+     VALUES ($1, $2, $3, $4, $5, $6, 'emergency')
      RETURNING contact_id, full_name, relationship_to_child, phone, email, is_authorized_pickup`,
     [id, full_name, relationship_to_child, phone || null, email || null, is_authorized_pickup ?? false]
   );
