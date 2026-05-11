@@ -13,14 +13,29 @@ const ROLE_LABELS: Record<string, string> = {
   staff: "Educator",
 };
 
+type TeamMember = {
+  user_id: number;
+  first_name: string;
+  last_name: string;
+  role: string;
+  bio: string | null;
+  job_title: string | null;
+  profile_image: string | null;
+  facebook_url: string | null;
+  linkedin_url: string | null;
+  twitter_url: string | null;
+};
+
 export default async function AboutPage() {
-  let teamMembers: { user_id: number; first_name: string; last_name: string; role: string }[] = [];
+  let teamMembers: TeamMember[] = [];
   try {
     const result = await pool.query(
-      `SELECT user_id, first_name, last_name, role
+      `SELECT user_id, first_name, last_name, role,
+              bio, job_title, profile_image,
+              facebook_url, linkedin_url, twitter_url
        FROM users
        WHERE role IN ('staff', 'admin', 'cfo') AND show_on_website = true
-       ORDER BY CASE role WHEN 'admin' THEN 1 WHEN 'cfo' THEN 2 ELSE 3 END, last_name, first_name`
+       ORDER BY COALESCE(display_order, 99), last_name, first_name`
     );
     teamMembers = result.rows;
   } catch {
@@ -150,17 +165,68 @@ export default async function AboutPage() {
                   <Card key={member.user_id} className="hover:shadow-xl transition-all">
                     <CardContent className="p-8">
                       <div className="flex flex-col items-center text-center">
-                        <div className="w-24 h-24 rounded-full bg-[#2888B8]/10 flex items-center justify-center mb-4 border-4 border-[#2888B8]/20">
-                          <span className="text-2xl font-bold text-[#2888B8]">
-                            {member.first_name[0]}{member.last_name[0]}
-                          </span>
-                        </div>
+                        {member.profile_image ? (
+                          <div className="relative w-24 h-24 rounded-full overflow-hidden mb-4 border-4 border-[#2888B8]/20">
+                            <Image
+                              src={member.profile_image}
+                              alt={`${member.first_name} ${member.last_name}`}
+                              fill
+                              className="object-cover"
+                              sizes="96px"
+                            />
+                          </div>
+                        ) : (
+                          <div className="w-24 h-24 rounded-full bg-[#2888B8]/10 flex items-center justify-center mb-4 border-4 border-[#2888B8]/20">
+                            <span className="text-2xl font-bold text-[#2888B8]">
+                              {member.first_name[0]}{member.last_name[0]}
+                            </span>
+                          </div>
+                        )}
                         <h3 className="text-xl font-bold text-[#002040] mb-1">
                           {member.first_name} {member.last_name}
                         </h3>
-                        <p className="text-[#2888B8] font-semibold text-sm">
-                          {ROLE_LABELS[member.role] ?? member.role}
+                        <p className="text-[#2888B8] font-semibold text-sm mb-3">
+                          {member.job_title || ROLE_LABELS[member.role] || member.role}
                         </p>
+                        {member.bio && (
+                          <p className="text-gray-600 text-sm leading-relaxed mb-4">
+                            {member.bio}
+                          </p>
+                        )}
+                        {(member.facebook_url || member.linkedin_url || member.twitter_url) && (
+                          <div className="flex gap-2 justify-center">
+                            {member.facebook_url && (
+                              <a
+                                href={member.facebook_url}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="w-8 h-8 rounded-full bg-[#1877F2] flex items-center justify-center text-white text-xs font-bold hover:opacity-80 transition-opacity"
+                              >
+                                f
+                              </a>
+                            )}
+                            {member.linkedin_url && (
+                              <a
+                                href={member.linkedin_url}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="w-8 h-8 rounded-full bg-[#0A66C2] flex items-center justify-center text-white text-xs font-bold hover:opacity-80 transition-opacity"
+                              >
+                                in
+                              </a>
+                            )}
+                            {member.twitter_url && (
+                              <a
+                                href={member.twitter_url}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="w-8 h-8 rounded-full bg-black flex items-center justify-center text-white text-xs font-bold hover:opacity-80 transition-opacity"
+                              >
+                                X
+                              </a>
+                            )}
+                          </div>
+                        )}
                       </div>
                     </CardContent>
                   </Card>

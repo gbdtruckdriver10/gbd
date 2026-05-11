@@ -6,10 +6,29 @@ export async function PATCH(
   { params }: { params: Promise<{ id: string }> }
 ) {
   const { id } = await params;
-  const { show_on_website } = await req.json();
+  const { show_on_website, bio, job_title, profile_image, facebook_url, linkedin_url, twitter_url, display_order } = await req.json();
   await pool.query(
-    `UPDATE users SET show_on_website = $1 WHERE user_id = $2`,
-    [show_on_website, id]
+    `UPDATE users SET
+       show_on_website = COALESCE($1, show_on_website),
+       bio = COALESCE($2, bio),
+       job_title = COALESCE($3, job_title),
+       profile_image = COALESCE($4, profile_image),
+       facebook_url = COALESCE($5, facebook_url),
+       linkedin_url = COALESCE($6, linkedin_url),
+       twitter_url = COALESCE($7, twitter_url),
+       display_order = COALESCE($8, display_order)
+     WHERE user_id = $9`,
+    [
+      show_on_website ?? null,
+      bio ?? null,
+      job_title ?? null,
+      profile_image ?? null,
+      facebook_url ?? null,
+      linkedin_url ?? null,
+      twitter_url ?? null,
+      display_order ?? null,
+      id,
+    ]
   );
   return NextResponse.json({ ok: true });
 }
