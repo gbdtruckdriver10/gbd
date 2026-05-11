@@ -150,28 +150,28 @@ export default function HomePage() {
             {[
               {
                 name: 'Childcare',
-                age: '6 months - 5 years',
+                age: ' 1 month - 5 years',
                 description: 'Full-time care with structured learning',
                 image: "/programs/childcare.png",
                 color: '#2888B8'
               },
               {
                 name: 'Basketball',
-                age: '4-8 years',
+                age: '3-6 years',
                 description: 'Fun skills and teamwork development',
                 image: "/programs/basketball.png",
                 color: '#E05830'
               },
               {
                 name: 'Tutoring',
-                age: '5-10 years',
+                age: '4-6 years',
                 description: 'Personalized academic support',
                 image: "/programs/tutoring.png",
                 color: '#E8A018'
               },
               {
                 name: 'Summer Camp',
-                age: '5-12 years',
+                age: '3-6 years',
                 description: 'Adventures and activities all summer',
                 image: "/programs/summercamp.png",
                 color: '#489858'
